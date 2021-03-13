@@ -1,9 +1,13 @@
 import 'dart:io';
 import 'dart:convert';
 import 'errorPost.dart';
+import 'errorNotificationDao.dart';
 
 class HeimdallEndpoint {
   HttpServer _server;
+  final ErrorNotificationDao errorDao;
+
+  HeimdallEndpoint(this.errorDao);
 
   String _formatError(int code, String message, String type) {
     final error = {
@@ -26,11 +30,10 @@ class HeimdallEndpoint {
       utf8.decoder.bind(request).listen((String content) {
         try {
           var receivedError = ErrorPost.fromJson(content);
+          errorDao.save(receivedError);
           request.response
-            ..write('I received your error post. Thank you!')
+            ..statusCode = 200
             ..close();
-
-          print(receivedError);
         }
         catch (e) {
           request.response
