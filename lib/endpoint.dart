@@ -1,48 +1,65 @@
 import 'dart:io';
-import 'dart:convert';
-import 'errorPost.dart';
-import 'errorNotificationDao.dart';
+import 'package:open_heimdall/DaoFactory.dart';
+import 'package:open_heimdall/responseUtils.dart';
+
+typedef EndpointRouteFn = void Function(HttpRequest request, DaoFactory daoFactory, ResponseUtils responseUtils);
 
 class HeimdallEndpoint {
   HttpServer _server;
-  final ErrorNotificationDao errorDao;
+  final DaoFactory daoFactory;
+  final _responseUtils = ResponseUtils();
+  final Map<String, EndpointRouteFn> _getRoutes = {};
+  final Map<String, EndpointRouteFn> _postRoutes = {};
 
-  HeimdallEndpoint(this.errorDao);
+  HeimdallEndpoint(this.daoFactory);
 
-  String _formatError(int code, String message, String type) {
-    final error = {
-      'code': code,
-      'message': message,
-      'type': type
-    };
-    return jsonEncode(error);
+  void getRoute(String path, EndpointRouteFn routeFunction) {
+    if (_getRoutes.containsKey(path)) {
+      _getRoutes.remove(path);
+    }
+    _getRoutes[path] = routeFunction;
+  }
+
+  void postRoute(String path, EndpointRouteFn routeFunction) {
+    if (_postRoutes.containsKey(path)) {
+      _postRoutes.remove(path);
+    }
+    _postRoutes[path] = routeFunction;
+  }
+
+  void _setRouteNotFoundResponse(HttpRequest request) {
+    request.response
+      ..statusCode = 404
+      ..close();
   }
 
   void _onRequest(HttpRequest request) {
-    print('A new ${request.method} request was received!');
+    Map<String, EndpointRouteFn> routes;
+
     if (request.method == 'GET') {
-      request.response.statusCode = 200;
-      request.response..
-        write('Hello World!')..
-        close();
+      routes = _getRoutes;
     }
-    else if (request.method == 'POST' && request.headers.contentType?.mimeType == 'application/json') {
-      utf8.decoder.bind(request).listen((String content) {
+    else if (request.method == 'POST') {
+      routes = _postRoutes;
+    }
+    else {
+      _setRouteNotFoundResponse(request);
+      return;
+    }
+
+    var path = request.uri.toString();
+    for (var routePath in routes.keys) {
+      if (routePath == path) {
         try {
-          var receivedError = ErrorPost.fromJson(content);
-          errorDao.save(receivedError);
-          request.response
-            ..statusCode = 200
-            ..close();
+          routes[routePath](request, daoFactory, _responseUtils);
+        } catch(e) {
+          _responseUtils.sendErrorResponse(request, 500, e.toString(), 'InternalServer');
         }
-        catch (e) {
-          request.response
-            ..statusCode = 400
-            ..write(_formatError(400, e.toString(), 'FormatException'))
-            ..close();
-        }
-      });
+        return;
+      }
     }
+
+    _setRouteNotFoundResponse(request);
   }
 
   void start() async {
