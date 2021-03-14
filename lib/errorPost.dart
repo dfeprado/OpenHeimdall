@@ -14,6 +14,8 @@ class ErrorPost {
   String _message;
   String _program;
 
+  ErrorPost(this._timestamp, this._program, this._scope, this._type, this._message);
+
   ErrorPost.fromJson(String jsonString) {
     var json = jsonDecode(jsonString) as Map;
 
@@ -27,6 +29,14 @@ class ErrorPost {
     _message = json[MESSAGE_KEY];
     _program = json[PROGRAM_KEY];
   } 
+
+  Map<String, dynamic> toJson() => {
+    'timestamp': _timestamp.toIso8601String(),
+    'program': _program,
+    'scope': _scope,
+    'type': _type,
+    'message': _message
+  };
 
   DateTime get timestamp => _timestamp;
   String get type => _type;

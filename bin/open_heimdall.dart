@@ -8,7 +8,8 @@ void main(List<String> arguments) {
   var endpoint = HeimdallEndpoint(PgDaoFactory());
 
   endpoint.getRoute('/', HelloWorldRoute);
-  endpoint.postRoute('/v1/error', ErrorNotificationRoute);
+  endpoint.postRoute('/v1/error', PostErrorNotificationRoute);
+  endpoint.getRoute('/v1/error', GetErrorNotificationRoute);
   endpoint.start();
 
   ProcessSignal.sigint.watch().listen((ProcessSignal signal) {
