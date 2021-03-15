@@ -1,15 +1,34 @@
 import 'dart:io';
 import 'package:open_heimdall/DaoFactory.dart';
-import 'package:open_heimdall/responseUtils.dart';
+import 'package:open_heimdall/openHeimdallRequest.dart';
 
-typedef EndpointRouteFn = void Function(HttpRequest request, DaoFactory daoFactory, ResponseUtils responseUtils);
+typedef EndpointRouteFn = void Function(OpenHeimdallRequest request);
+
+class _RoutePattern {
+  final _params = List<String>.empty(growable: true);
+  RegExp _pattern;
+
+  _RoutePattern(String path) {
+    // 1. Separa os nomes dos parâmetros
+    path = path.toLowerCase();
+    var paramsPattern = RegExp(r':([a-z0-9]+)');
+    var matches = paramsPattern.allMatches(path);
+
+    for (var match in matches) {
+      _params.add(match[1]);
+    }
+
+    // 2. Converte o caminho para um RoutePattern
+    path = path.replaceAll(RegExp(r':[a-z0-9]+'), '([a-zA-Z0-9]+)');
+    _pattern = RegExp('^' + path);
+  }
+}
 
 class HeimdallEndpoint {
   HttpServer _server;
   final DaoFactory daoFactory;
-  final _responseUtils = ResponseUtils();
-  final Map<String, EndpointRouteFn> _getRoutes = {};
-  final Map<String, EndpointRouteFn> _postRoutes = {};
+  final Map<_RoutePattern, EndpointRouteFn> _getRoutes = {};
+  final Map<_RoutePattern, EndpointRouteFn> _postRoutes = {};
 
   HeimdallEndpoint(this.daoFactory);
 
@@ -17,14 +36,14 @@ class HeimdallEndpoint {
     if (_getRoutes.containsKey(path)) {
       _getRoutes.remove(path);
     }
-    _getRoutes[path] = routeFunction;
+    _getRoutes[_RoutePattern(path)] = routeFunction;
   }
 
   void postRoute(String path, EndpointRouteFn routeFunction) {
     if (_postRoutes.containsKey(path)) {
       _postRoutes.remove(path);
     }
-    _postRoutes[path] = routeFunction;
+    _postRoutes[_RoutePattern(path)] = routeFunction;
   }
 
   void _setRouteNotFoundResponse(HttpRequest request) {
@@ -34,7 +53,7 @@ class HeimdallEndpoint {
   }
 
   void _onRequest(HttpRequest request) {
-    Map<String, EndpointRouteFn> routes;
+    Map<_RoutePattern, EndpointRouteFn> routes;
 
     if (request.method == 'GET') {
       routes = _getRoutes;
@@ -49,11 +68,14 @@ class HeimdallEndpoint {
 
     var path = request.uri.toString();
     for (var routePath in routes.keys) {
-      if (routePath == path) {
+      var match = routePath._pattern.firstMatch(path);
+      if (match != null) {
         try {
-          routes[routePath](request, daoFactory, _responseUtils);
+          routes[routePath](OpenHeimdallRequest(request, RouteParams(routePath._params, match), daoFactory));
         } catch(e) {
-          _responseUtils.sendErrorResponse(request, 500, e.toString(), 'InternalServer');
+          request.response
+            ..statusCode = 404
+            ..close();
         }
         return;
       }

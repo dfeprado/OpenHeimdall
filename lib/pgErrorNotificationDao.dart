@@ -31,4 +31,14 @@ class PgErrorNotificationDao extends ErrorNotificationDao {
     var result = await connection.query('select datetime, program, scope, type, message from notified_errors order by 1 desc limit 30;');
     return List<ErrorPost>.from(result.map((e) => ErrorPost(e[0], e[1], e[2], e[3], e[4])));
   }
+
+  @override
+  Future<List<ErrorPost>> getAllFrom(String program) async {
+    var connection = await _getConnection(opened: true);
+    var result = await connection.query(
+      'select datetime, program, scope, type, message from notified_errors where program = @program order by 1 desc limit 30', 
+      substitutionValues: {'program': program}
+    );
+    return List<ErrorPost>.from(result.map((e) => ErrorPost(e[0], e[1], e[2], e[3], e[4])));
+  }
 }

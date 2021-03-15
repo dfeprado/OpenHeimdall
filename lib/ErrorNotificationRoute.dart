@@ -1,32 +1,31 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:open_heimdall/DaoFactory.dart';
 import 'package:open_heimdall/errorPost.dart';
-import 'package:open_heimdall/responseUtils.dart';
+import 'package:open_heimdall/openHeimdallRequest.dart';
 
-Function PostErrorNotificationRoute = (HttpRequest request, DaoFactory daoFactory, ResponseUtils responseUtils) {
+Function PostErrorNotificationRoute = (OpenHeimdallRequest request) async {
     if (request.headers.contentType?.mimeType != 'application/json') {
-      responseUtils.sendErrorResponse(request, 400, 'Unknown body format', 'Bad Request');
+      request.sendRequestBadFormat();
     }
 
-    var errorDao = daoFactory.getErrorNotificationDao();
-
-    utf8.decoder.bind(request).listen((String content) {
-      try {
-        var receivedError = ErrorPost.fromJson(content);
-        errorDao.save(receivedError);
-        request.response
-          ..statusCode = 200
-          ..close();
-      }
-      catch (e) {
-        responseUtils.sendErrorResponse(request, 400, e.toString(), 'FormatException');
-      }
-    });
+    var errorDao = request.daoFactory.getErrorNotificationDao();
+    var body = await request.body;
+    try {
+      var receivedError = ErrorPost.fromJson(body);
+      await errorDao.save(receivedError);
+      request.sendOk();
+    }
+    catch (e) {
+      request.sendRequestBadFormat(body: 'Format Exception');
+    }
 };
 
-Function GetErrorNotificationRoute = (HttpRequest request, DaoFactory daoFactory, ResponseUtils responseUtils) async {
-  var errorDao = daoFactory.getErrorNotificationDao();
+Function GetErrorNotificationRoute = (OpenHeimdallRequest request) async {
+  var errorDao = request.daoFactory.getErrorNotificationDao();
   var errorList = await errorDao.getAll();
-  responseUtils.sendResponse(request, 200, jsonEncode(errorList));
+  request.sendOk(body: jsonEncode(errorList));
+};
+
+Function GetProgramErrorsRoute = (OpenHeimdallRequest request) async {
+  var errorList = await request.daoFactory.getErrorNotificationDao().getAllFrom(request.param['program']);
+  request.sendOk(body: jsonEncode(errorList));
 };

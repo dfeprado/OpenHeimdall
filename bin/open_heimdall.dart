@@ -7,9 +7,11 @@ import 'dart:io';
 void main(List<String> arguments) {
   var endpoint = HeimdallEndpoint(PgDaoFactory());
 
-  endpoint.getRoute('/', HelloWorldRoute);
   endpoint.postRoute('/v1/error', PostErrorNotificationRoute);
+
+  endpoint.getRoute('/v1/error/:program', GetProgramErrorsRoute);
   endpoint.getRoute('/v1/error', GetErrorNotificationRoute);
+  endpoint.getRoute('/', HelloWorldRoute);
   endpoint.start();
 
   ProcessSignal.sigint.watch().listen((ProcessSignal signal) {
