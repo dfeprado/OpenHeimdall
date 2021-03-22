@@ -1,5 +1,5 @@
-import 'package:open_heimdall/openHeimdallRequest.dart';
+import 'package:coruja/coruja.dart';
 
-Function HelloWorldRoute = (OpenHeimdallRequest request) {
-  request.sendOk(body: 'Hello World!');
-};
+void HelloWorldRoute(CorujaRequest request) {
+  request.writeResponse(content: 'Hello World!');
+}

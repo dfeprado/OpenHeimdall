@@ -8,11 +8,11 @@ const MESSAGE_KEY = 'message';
 const PROGRAM_KEY = 'program';
 
 class ErrorPost {
-  DateTime _timestamp;
-  String _type;
-  String _scope;
-  String _message;
-  String _program;
+  late DateTime _timestamp;
+  late String _type;
+  late String _scope;
+  late String _message;
+  late String _program;
 
   ErrorPost(this._timestamp, this._program, this._scope, this._type, this._message);
 

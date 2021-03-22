@@ -1,31 +1,41 @@
 import 'dart:convert';
-import 'package:open_heimdall/errorPost.dart';
-import 'package:open_heimdall/openHeimdallRequest.dart';
+import 'package:coruja/coruja.dart';
 
-Function PostErrorNotificationRoute = (OpenHeimdallRequest request) async {
-    if (request.headers.contentType?.mimeType != 'application/json') {
-      request.sendRequestBadFormat();
-    }
+import 'errorPost.dart';
+import 'open_heimdall_request.dart';
 
-    var errorDao = request.daoFactory.getErrorNotificationDao();
-    var body = await request.body;
-    try {
-      var receivedError = ErrorPost.fromJson(body);
-      await errorDao.save(receivedError);
-      request.sendOk();
-    }
-    catch (e) {
-      request.sendRequestBadFormat(body: 'Format Exception');
-    }
-};
+void PostErrorNotificationRoute(CorujaRequest request) async {
+  try {
+    var receivedError = ErrorPost.fromJson(await request.body);
+    var errorDao = (request as OpenHeimdallRequest).daoFactory.getErrorNotificationDao();
+    await errorDao.save(receivedError);
+    request.writeResponse();
+  } on FormatException catch(e) {
+    request.writeResponse(code: 400, content: '$e');
+  }
+}
 
-Function GetErrorNotificationRoute = (OpenHeimdallRequest request) async {
-  var errorDao = request.daoFactory.getErrorNotificationDao();
+void GetErrorNotificationRoute(CorujaRequest request) async {
+  var errorDao = (request as OpenHeimdallRequest).daoFactory.getErrorNotificationDao();
   var errorList = await errorDao.getAll();
-  request.sendOk(body: jsonEncode(errorList));
-};
+  request.writeResponse(content: jsonEncode(errorList));
+}
 
-Function GetProgramErrorsRoute = (OpenHeimdallRequest request) async {
-  var errorList = await request.daoFactory.getErrorNotificationDao().getAllFrom(request.param['program']);
-  request.sendOk(body: jsonEncode(errorList));
-};
+void GetProgramErrorsRoute(CorujaRequest request) async {
+  var errorList = await (request as OpenHeimdallRequest)
+    .daoFactory
+    .getErrorNotificationDao()
+    .getAllFrom(request.routeParams['program']!);
+  request.writeResponse(content: jsonEncode(errorList));
+}
+
+void PostErrorNotificationTest(CorujaRequest request) async {
+  var error = ErrorPost(DateTime.now(), request.routeParams['program']!, request.routeParams['scope']!, 'testing', 'testing');
+  var fcmResponse = await (request as OpenHeimdallRequest).sendNotification(error);
+  if (fcmResponse['error'] != null) {
+    request.writeResponse(code: fcmResponse['error']['code'], content: json.encode(fcmResponse));
+  }
+  else {
+    request.writeResponse(code: 200);
+  }
+}

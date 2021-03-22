@@ -1,20 +1,35 @@
+import 'package:coruja/coruja.dart';
 import 'package:open_heimdall/ErrorNotificationRoute.dart';
 import 'package:open_heimdall/PgDaoFactory.dart';
-import 'package:open_heimdall/endpoint.dart';
 import 'package:open_heimdall/HelloWorldRoute.dart';
 import 'dart:io';
 
-void main(List<String> arguments) {
-  var endpoint = HeimdallEndpoint(PgDaoFactory());
+import 'package:open_heimdall/open_heimdall_request.dart';
 
-  endpoint.postRoute('/v1/error', PostErrorNotificationRoute);
+void main(List<String> arguments) async {
+  Map<String, String> envVars = Platform.environment;
+  var firebase_key = envVars['OPENHEIMDALL_FIREBASE_KEY'];
 
-  endpoint.getRoute('/v1/error/:program', GetProgramErrorsRoute);
-  endpoint.getRoute('/v1/error', GetErrorNotificationRoute);
-  endpoint.getRoute('/', HelloWorldRoute);
-  endpoint.start();
+  if (firebase_key == null) {
+    print('Set OPENHEIMDALL_FIREBASE_KEY environment variable pointing to firebase key json');
+    exit(1);
+  }
+
+  var keyFile = File(firebase_key);
+  var firebase_key_content = await keyFile.readAsString();
+
+  var endpoint = Coruja();
+  endpoint.setRequestFactory(OpenHeimdalRequestFactory(PgDaoFactory(), firebase_key_content));
+
+  endpoint.addPostRoute('/v1/error', PostErrorNotificationRoute);
+  endpoint.addPostRoute('/v1/error/:program/:scope', PostErrorNotificationTest);
+  endpoint.addGetRoute('/v1/error/:program', GetProgramErrorsRoute);
+  endpoint.addGetRoute('/v1/error', GetErrorNotificationRoute);
+  endpoint.addGetRoute('/', HelloWorldRoute);
+
+  endpoint.listen();
 
   ProcessSignal.sigint.watch().listen((ProcessSignal signal) {
-    endpoint.stop();
+    endpoint.close();
   });
 }
